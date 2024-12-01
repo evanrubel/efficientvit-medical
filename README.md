@@ -1,3 +1,5 @@
+See installation instructions [here](https://docs.google.com/document/d/1IfJzA2jITbb3wsRPl3mJKoSyKD6JqlM8UIedhuZYigE/edit?tab=t.0#heading=h.ny8icf1itmoq).
+
 # EfficientViT: Multi-Scale Linear Attention for High-Resolution Dense Prediction [[paper](https://arxiv.org/abs/2205.14756)]
 
 **Efficient vision foundation models for high-resolution generation and perception.**
