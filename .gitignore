@@ -20,3 +20,4 @@ applications/efficientvit_gazesam/models/onnx
 applications/efficientvit_gazesam/models/tensorrt
 
 data/
+slurm*

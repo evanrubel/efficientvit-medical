@@ -11,19 +11,19 @@ from tqdm import tqdm
 from efficientvit.apps.trainer import Trainer
 from efficientvit.apps.utils import AverageMeter, get_dist_local_rank, get_dist_size, is_master, sync_tensor
 from efficientvit.models.utils import list_join
-from efficientvit.samcore.data_provider import SAMDataProvider
+from efficientvit.samcore.data_provider import MedSAMDataProvider
 from efficientvit.samcore.trainer import SAMRunConfig
 from efficientvit.samcore.trainer.utils import compute_boundary_iou, compute_iou, loss_masks, masks_sample_points
 
-__all__ = ["SAMTrainer"]
+__all__ = ["MedSAMTrainer"]
 
 
-class SAMTrainer(Trainer):
+class MedSAMTrainer(Trainer):
     def __init__(
         self,
         path: str,
         model: nn.Module,
-        data_provider: SAMDataProvider,
+        data_provider: MedSAMDataProvider,
     ) -> None:
         super().__init__(
             path=path,
@@ -50,7 +50,7 @@ class SAMTrainer(Trainer):
                     image = data["image"].cuda()
                     masks = data["masks"].cuda()
                     bboxs = data["bboxs"].cuda() * 2 if image.shape[2] == 512 else data["bboxs"].cuda()
-                    points = data["points"].cuda() * 2 if image.shape[2] == 512 else data["points"].cuda()
+                    # points = data["points"].cuda() * 2 if image.shape[2] == 512 else data["points"].cuda()
 
                     bboxs[..., 2] = bboxs[..., 0] + bboxs[..., 2]
                     bboxs[..., 3] = bboxs[..., 1] + bboxs[..., 3]
@@ -128,7 +128,7 @@ class SAMTrainer(Trainer):
         image = feed_dict["image"].cuda()
         masks = feed_dict["masks"].cuda()
         bboxs = feed_dict["bboxs"].cuda() * 2 if image.shape[2] == 512 else feed_dict["bboxs"].cuda()
-        points = feed_dict["points"].cuda() * 2 if image.shape[2] == 512 else feed_dict["points"].cuda()
+        # points = feed_dict["points"].cuda() * 2 if image.shape[2] == 512 else feed_dict["points"].cuda()
 
         bboxs[..., 2] = bboxs[..., 0] + bboxs[..., 2]
         bboxs[..., 3] = bboxs[..., 1] + bboxs[..., 3]
@@ -136,7 +136,7 @@ class SAMTrainer(Trainer):
         return {
             "image": image,
             "masks": masks,
-            "points": points,
+            # "points": points,
             "bboxs": bboxs,
         }
 
@@ -144,7 +144,7 @@ class SAMTrainer(Trainer):
         image = feed_dict["image"]
         masks = feed_dict["masks"]
         bboxs = feed_dict["bboxs"]
-        points = feed_dict["points"]
+        # points = feed_dict["points"]
 
         batched_input = []
         for b_i in range(len(image)):
@@ -293,3 +293,5 @@ class SAMTrainer(Trainer):
         # amp
         self.amp = amp
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.enable_amp)
+
+

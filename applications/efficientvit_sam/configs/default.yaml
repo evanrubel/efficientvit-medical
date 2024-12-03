@@ -1,6 +1,6 @@
 data_provider:
   dataset: sam
-  root: /data/sam
+  root: /dataset/sam/
   sub_epochs_per_epoch: 40 # split one epoch into several sub epochs for validation and checkpointing convenience
   num_masks: 64 # number of masks per image during training
   train_batch_size: 4 # batch size per gpu device

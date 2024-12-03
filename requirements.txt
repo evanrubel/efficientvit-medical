@@ -15,6 +15,7 @@ diffusers
 omegaconf
 ipdb
 wandb[media]
+albumentations
 
 matplotlib
 huggingface-hub
