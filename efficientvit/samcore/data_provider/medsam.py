@@ -256,6 +256,7 @@ class MedSAMDataProvider(DataProvider):
         self.root = root
         self.num_masks = num_masks
         self.sub_epochs_per_epoch = sub_epochs_per_epoch
+        self.n_worker = n_worker
 
         super().__init__(
             train_batch_size,
@@ -270,7 +271,7 @@ class MedSAMDataProvider(DataProvider):
         )
 
 
-    def build_aug_transform():
+    def build_aug_transform(self):
         """
         Constructs an augmentation pipeline using albumentations.
         """
@@ -288,7 +289,7 @@ class MedSAMDataProvider(DataProvider):
         return aug_transform
 
     def build_datasets(self) -> tuple[Any, Any, Any]:
-        train_transform = self.build_train_transform()
+        train_transform = self.build_aug_transform()
         # valid_transform = self.build_valid_transform()
 
         # train_dataset = OnlineDataset(root=self.root, train=True, num_masks=self.num_masks, transform=train_transform)

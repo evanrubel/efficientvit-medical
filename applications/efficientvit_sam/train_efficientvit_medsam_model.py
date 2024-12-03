@@ -9,8 +9,8 @@ sys.path.append(ROOT_DIR)
 from efficientvit.apps import setup
 from efficientvit.apps.utils import dump_config, parse_unknown_args
 from efficientvit.sam_model_zoo import create_efficientvit_sam_model
-from efficientvit.samcore.data_provider import SAMDataProvider, MedSAMDataProvider
-from efficientvit.samcore.trainer import SAMRunConfig, SAMTrainer, MedSAMTrainer
+from efficientvit.samcore.data_provider import MedSAMDataProvider
+from efficientvit.samcore.trainer import SAMRunConfig, MedSAMTrainer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("config", metavar="FILE", help="config file")
@@ -60,7 +60,7 @@ def main():
 
     if args.resume:
         trainer.load_model()
-        trainer.data_provider = setup.setup_data_provider(config, [SAMDataProvider], is_distributed=True)
+        trainer.data_provider = setup.setup_data_provider(config, [MedSAMDataProvider], is_distributed=True)
     else:
         trainer.sync_model()
 
