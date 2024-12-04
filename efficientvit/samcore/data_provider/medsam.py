@@ -194,7 +194,7 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
         masks_list = []
         boxes_list = []
         for mask in all_masks:
-            mask = torch.from_numpy(mask).type(torch.uint8)
+            mask = torch.from_numpy(mask.copy()).type(torch.uint8)
             mask = transform_gt(mask, self.image_encoder_input_size)
             if mask.max() == 0:
                 H, W = mask.shape

@@ -21,3 +21,5 @@ applications/efficientvit_gazesam/models/tensorrt
 
 data/
 slurm*
+
+train.sh
