@@ -87,7 +87,6 @@ def setup_data_provider(
     exp_config: dict, data_provider_classes: list[type[DataProvider]], is_distributed: bool = True
 ) -> DataProvider:
     dp_config = exp_config["data_provider"]
-    print(dp_config)
     dp_config["num_replicas"] = get_dist_size() if is_distributed else None
     dp_config["rank"] = get_dist_rank() if is_distributed else None
     dp_config["test_batch_size"] = dp_config.get("test_batch_size", None)

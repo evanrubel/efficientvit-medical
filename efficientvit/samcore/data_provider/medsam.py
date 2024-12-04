@@ -327,6 +327,8 @@ class MedSAMDataProvider(DataProvider):
         )
 
         test_dataset = None
+        print('Train Dataset Length: ')
+        print(train_dataset)
 
         return train_dataset, val_dataset, test_dataset
 

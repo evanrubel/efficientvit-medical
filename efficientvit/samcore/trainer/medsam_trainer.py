@@ -15,6 +15,7 @@ from efficientvit.samcore.data_provider import MedSAMDataProvider
 from efficientvit.samcore.trainer import SAMRunConfig
 from efficientvit.samcore.trainer.utils import compute_boundary_iou, compute_iou, loss_masks, masks_sample_points
 
+import pdb
 __all__ = ["MedSAMTrainer"]
 
 
@@ -154,18 +155,21 @@ class MedSAMTrainer(Trainer):
             if random.random() >= 0.5:
                 dict_input["boxes"] = bboxs[b_i]
             else:
-                try:
-                    n_p = int(random.random() * 10 + 1)
-                    dict_input["point_coords"] = masks_sample_points(masks[b_i], k=n_p)
-                    if image.shape[2] == 512:
-                        dict_input["point_coords"] = dict_input["point_coords"] * 2
-                    dict_input["point_labels"] = torch.ones((points[b_i].shape[0], n_p), device=image.device)
-                except:
-                    dict_input["boxes"] = bboxs[b_i]
+                # try:
+                #     n_p = int(random.random() * 10 + 1)
+                #     dict_input["point_coords"] = masks_sample_points(masks[b_i], k=n_p)
+                #     if image.shape[2] == 512:
+                #         dict_input["point_coords"] = dict_input["point_coords"] * 2
+                #     dict_input["point_labels"] = torch.ones((points[b_i].shape[0], n_p), device=image.device)
+                # except:
+                #     dict_input["boxes"] = bboxs[b_i]
+
+                dict_input["boxes"] = bboxs[b_i]
 
             batched_input.append(dict_input)
 
         with torch.autocast(device_type="cuda", dtype=self.amp_dtype, enabled=self.enable_amp):
+            # print(batched_input[0])
             if random.random() >= 0.5:
                 output, _ = self.model(batched_input, multimask_output=True)
             else:
@@ -180,6 +184,9 @@ class MedSAMTrainer(Trainer):
                     .reshape(-1, image.shape[2], image.shape[3])
                     .unsqueeze(1)
                 )
+                # pdb.set_trace()
+                print(output_i)
+                print(output_i.dtype)
                 loss_mask_i, loss_dice_i = loss_masks(output_i, masks, len(output_i), mode="none")
                 loss_i = loss_mask_i * 20 + loss_dice_i
                 loss_list.append(loss_i)

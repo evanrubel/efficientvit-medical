@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 from torch.nn import functional as F
+import pdb
 
 """
     Some functions in this file are modified from https://github.com/SysCV/sam-hq/blob/main/train/utils/misc.py.
@@ -44,6 +45,11 @@ def point_sample(input, point_coords, **kwargs):
     if point_coords.dim() == 3:
         add_dim = True
         point_coords = point_coords.unsqueeze(2)
+
+    print('Input Datatype')
+    print(input.dtype)
+    print('Point coords dtype')
+    print((2.0 * point_coords - 1.0).dtype)
     output = F.grid_sample(input, 2.0 * point_coords - 1.0, **kwargs)
     if add_dim:
         output = output.squeeze(3)
@@ -179,6 +185,7 @@ def loss_masks(src_masks, target_masks, num_masks, oversample_ratio=3.0, mode="m
     """
 
     with torch.no_grad():
+        # pdb.set_trace()
         # sample point_coords
         point_coords = get_uncertain_point_coords_with_randomness(
             src_masks,
@@ -193,6 +200,10 @@ def loss_masks(src_masks, target_masks, num_masks, oversample_ratio=3.0, mode="m
             point_coords,
             align_corners=False,
         ).squeeze(1)
+    print('Src mask dtype')
+    print(src_masks.dtype)
+    
+    src_masks = src_masks.to(torch.float32)
 
     point_logits = point_sample(
         src_masks,
