@@ -82,7 +82,7 @@ class MedSAMTrainer(Trainer):
                     )
                     masks = masks.reshape(-1, image.shape[2], image.shape[3]).unsqueeze(1)
 
-                    loss_mask, loss_dice = loss_masks(output, masks, len(output))
+                    loss_mask, loss_dice = loss_masks(output, masks.to(torch.float32), len(output))
                     loss = loss_mask * 20 + loss_dice
 
                     iou = compute_iou(output, masks * 255)
@@ -184,9 +184,6 @@ class MedSAMTrainer(Trainer):
                     .reshape(-1, image.shape[2], image.shape[3])
                     .unsqueeze(1)
                 )
-                # pdb.set_trace()
-                print(output_i)
-                print(output_i.dtype)
                 loss_mask_i, loss_dice_i = loss_masks(output_i, masks.to(torch.float32), len(output_i), mode="none")
                 loss_i = loss_mask_i * 20 + loss_dice_i
                 loss_list.append(loss_i)

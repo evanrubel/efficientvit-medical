@@ -32,6 +32,7 @@ def create_efficientvit_sam_model(
         )
     else:
         model_cls, norm_eps, default_pt = REGISTERED_EFFICIENTVIT_SAM_MODEL[name]
+        print(kwargs)
         model = model_cls(**kwargs)
         set_norm_eps(model, norm_eps)
         weight_url = default_pt if weight_url is None else weight_url

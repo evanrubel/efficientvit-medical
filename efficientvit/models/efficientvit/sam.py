@@ -81,6 +81,7 @@ class SamResize:
         """
         Expects a numpy array with shape HxWxC in uint8 format.
         """
+        
         target_size = self.get_preprocess_shape(image.shape[0], image.shape[1], self.size)
         return np.array(resize(to_pil_image(image), target_size))
 
@@ -313,9 +314,14 @@ class EfficientViTSamPredictor:
         self.reset_image()
 
         self.original_size = image.shape[:2]
+
+
+        print(f"Original size:  {self.original_size}")
+        print(f"Long Side Length: {self.model.image_size[0]}")
         self.input_size = ResizeLongestSide.get_preprocess_shape(
             *self.original_size, long_side_length=self.model.image_size[0]
         )
+        print(f"Input Size: {self.input_size}")
 
         torch_data = self.model.transform(image).unsqueeze(dim=0).to(get_device(self.model))
         self.features = self.model.image_encoder(torch_data)

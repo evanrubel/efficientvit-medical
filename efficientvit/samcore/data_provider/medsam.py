@@ -25,6 +25,7 @@ import zipfile
 from glob import glob
 from time import time
 from typing import List, Optional
+from os.path import basename
 
 import albumentations as A
 
@@ -37,7 +38,7 @@ from efficientvit.samcore.data_provider.utils import (
 )
 
 
-__all__ = ["MedSAMDataProvider"]
+__all__ = ["MedSAMDataProvider", "MedSAMTestDataset"]
 
 
 class MedSAMBaseDataset(Dataset):
@@ -86,17 +87,21 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
         limit_sample: Optional[int] = None,
         aug_transform: Optional[A.TransformType] = None,
         train: bool = True,
+        test: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         
         self.train = train
+        self.test = test
         self.bbox_random_shift = bbox_random_shift
         self.mask_num = mask_num
 
         self.npz_file_paths = sorted(
             glob(os.path.join(self.data_dir, glob_pattern), recursive=True)
         )
+        print(len(self.npz_file_paths))
+
         if limit_npz is not None:
             self.npz_file_paths = self.npz_file_paths[:limit_npz]
 
@@ -105,11 +110,15 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
                 parmap(self.__flatten_npz, self.npz_file_paths, nprocs=num_workers)
             )
         )
+        print("items length:")
+        print(len(self.items))
         if limit_sample is not None:
             rng = random.Random(42)
             self.items = rng.sample(self.items, limit_sample)
 
-        if self.train:
+        if self.test:
+            print("Number of testing samples:", len(self.items))
+        elif self.train:
             self.items = self.items[: int(len(self.items) * 0.99)]
             print("Number of training samples:", len(self.items))
         else:
@@ -169,7 +178,10 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
         assert len(labels) > 0, f"No label found in {item[0]}"
         # labels = random.choices(labels, k=self.mask_num)
 
-        if self.train:
+        if self.test:
+            # Use all labels as `selected_labels` if testing
+            selected_labels = labels
+        elif self.train:
             # Randomly select `num_masks` from the available labels
             if len(labels) > self.mask_num:
                 selected_labels = np.random.choice(labels, size=self.mask_num, replace=False)
@@ -177,12 +189,13 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
                 repeat, residue = self.mask_num // len(labels), self.mask_num % len(labels)
                 selected_labels = np.concatenate([labels for _ in range(repeat)] + [np.random.choice(labels, size=residue, replace=False)])
         else:
-            # Select first 'num_masks' for deterministic evaluation
+            # Select first 'num_masks' for deterministic evaluation during validation
             if len(labels) > self.mask_num:
                 selected_labels = np.arange(self.mask_num)
             else:
                 repeat, residue = self.mask_num // len(labels), self.mask_num % len(labels)
                 selected_labels = np.concatenate([labels for _ in range(repeat)] + [np.arange(residue)])
+
 
         # augmentation
         all_masks = [np.array(gt == label, dtype=np.uint8) for label in selected_labels]
@@ -215,7 +228,10 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
 
                 box = np.array([x_min, y_min, x_max, y_max])
             else:
-                box = get_bbox(mask, random.randint(0, self.bbox_random_shift))
+                if self.test:
+                    box = get_bbox(mask) # no random shift in bbox if testing
+                else:
+                    box = get_bbox(mask, random.randint(0, self.bbox_random_shift))
             box = resize_box(box, mask.shape, self.prompt_encoder_input_size)
             box = torch.tensor(box, dtype=torch.float32)
             masks_list.append(mask)
@@ -224,8 +240,219 @@ class MedSAMTrainDataset(MedSAMBaseDataset):
         tsfm_img = torch.tensor(np.transpose(img, (2, 0, 1)), dtype=torch.uint8)
         tsfm_img = self.transform_image(tsfm_img.unsqueeze(0)).squeeze(0)
 
+        return {
+            "image": tsfm_img,  # (3, H, W)
+            "masks": torch.stack(masks_list).unsqueeze(1),  # (N, H, W)
+            "bboxs": torch.stack(boxes_list),  # (N, 4)
+            "shape": torch.tensor(original_size, dtype=torch.int32),
+        }
 
-        #TODO: add points
+
+class MedSAMTestDataset(MedSAMBaseDataset):
+    def __init__(
+        self,
+        glob_pattern: str = "**/*.npz",
+        limit_npz: Optional[int] = None,
+        limit_sample: Optional[int] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        
+        self.npz_file_paths = sorted(
+            glob(os.path.join(self.data_dir, glob_pattern), recursive=True)
+        )
+        print(len(self.npz_file_paths))
+
+        if limit_npz is not None:
+            self.npz_file_paths = self.npz_file_paths[:limit_npz]
+        
+        self.items = self.npz_file_paths 
+
+        # self.items = list(
+        #     itertools.chain.from_iterable(
+        #         parmap(self.__flatten_npz, self.npz_file_paths, nprocs=num_workers)
+        #     )
+        # )
+        print("Number of testing samples:", len(self.items))
+
+
+    def __load_npz(self, npz_file_path):
+        try:
+            data = np.load(npz_file_path, "r")
+        except zipfile.BadZipFile:
+            return []
+        return data
+
+    def __flatten_npz(self, npz_file_path):
+        try:
+            data = np.load(npz_file_path, "r")
+        except zipfile.BadZipFile:
+            return []
+
+        gts = data["gts"]
+        assert len(gts.shape) == 2 or len(gts.shape) == 3
+        if len(gts.shape) > 2:  # 3D
+            return [
+                (npz_file_path, slice_index)
+                for slice_index in gts.max(axis=(1, 2)).nonzero()[0]
+            ]
+        else:  # 2D
+            return [(npz_file_path, -1)] if gts.max() > 0 else []
+
+    def get_name(self, item):
+        name = os.path.basename(item[0]).split(".")[0]
+        return name + f"_{item[1]:03d}" if item[1] != -1 else name
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, index):
+        npz_file_path = self.npz_file_paths[index]
+        data = self.__load_npz(npz_file_path)
+
+        img = data["imgs"]
+        npz_name = os.path.basename(npz_file_path)
+
+        if npz_name.startswith('3D'):
+            image_type = '3D'
+            print(f'data load: {img.shape}')
+            if len(img.shape) == 3:
+                # gray: (D, H, W) -> (D, H, W, 3)
+                img = np.repeat(img[..., None], 3, axis=-1)
+        elif npz_name.startswith('2D'):
+            image_type = '2D'
+            if len(img.shape) < 3:
+                img = np.repeat(img[..., None], 3, axis=-1)  # (H, W, 3)
+                # img = np.transpose(img, (2, 0, 1)) # (3, H, W)
+                
+        else:
+            raise NotImplementedError("Only support 2D and 3D image")
+
+        # img = torch.tensor(img, dtype=torch.uint8)
+
+        # original_size = img.shape[:2]
+        # new_size = ResizeLongestSide.get_preprocess_shape(
+        #         original_size[0], original_size[1], 512
+        # )
+        
+
+        # tsfm_img = torch.tensor(np.transpose(img, (2, 0, 1)), dtype=torch.uint8)
+        # tsfm_img = self.transform_image(tsfm_img.unsqueeze(0))
+
+        boxes = data["boxes"]
+        # boxes = torch.tensor(boxes, dtype=torch.float32)
+        # tsfm_boxes = []
+
+        # if npz_name.startswith('3D'):
+        #     for box3D in boxes:
+        #         x_min, y_min, z_min, x_max, y_max, z_max = box3D
+        #         box2D = np.array([x_min, y_min, x_max, y_max])
+        #         box2D = resize_box(
+        #             box2D,
+        #             original_size=original_size,
+        #             prompt_encoder_input_size=self.prompt_encoder_input_size,
+        #         )
+        #         box3D = np.array([box2D[0], box2D[1], z_min, box2D[2], box2D[3], z_max])
+        #         tsfm_boxes.append(box3D)
+                
+        # elif npz_name.startswith('2D'):
+        #     for box in boxes:
+        #         box = resize_box(
+        #             box,
+        #             original_size=original_size,
+        #             prompt_encoder_input_size=self.prompt_encoder_input_size
+        #         )
+        #         tsfm_boxes.append(box)
+        # else:
+        #     raise NotImplementedError("Only support 2D and 3D image")
+            
+        # tsfm_boxes = torch.tensor(np.array(tsfm_boxes), dtype=torch.float32)
+
+
+        return{
+            'image': img,
+            'boxes': boxes,
+            'npz_name': npz_name,
+            'image_type': image_type,
+            # 'original_size': original_size,
+            # 'new_size': new_size,
+            # 'prompt_encoder_input_size': self.prompt_encoder_input_size
+        }
+
+        # if item[1] != -1:  # 3D
+        #     img = img[item[1], :, :]
+        #     gt = gt[item[1], :, :]
+
+        # duplicate channel if the image is grayscale
+        if len(img.shape) < 3:
+            img = np.repeat(img[..., None], 3, axis=-1)  # (H, W, 3)
+
+        labels = np.unique(gt[gt > 0])
+        assert len(labels) > 0, f"No label found in {item[0]}"
+        # labels = random.choices(labels, k=self.mask_num)
+
+        if self.test:
+            # Use all labels as `selected_labels` if testing
+            selected_labels = labels
+        elif self.train:
+            # Randomly select `num_masks` from the available labels
+            if len(labels) > self.mask_num:
+                selected_labels = np.random.choice(labels, size=self.mask_num, replace=False)
+            else:
+                repeat, residue = self.mask_num // len(labels), self.mask_num % len(labels)
+                selected_labels = np.concatenate([labels for _ in range(repeat)] + [np.random.choice(labels, size=residue, replace=False)])
+        else:
+            # Select first 'num_masks' for deterministic evaluation during validation
+            if len(labels) > self.mask_num:
+                selected_labels = np.arange(self.mask_num)
+            else:
+                repeat, residue = self.mask_num // len(labels), self.mask_num % len(labels)
+                selected_labels = np.concatenate([labels for _ in range(repeat)] + [np.arange(residue)])
+
+
+        # augmentation
+        all_masks = [np.array(gt == label, dtype=np.uint8) for label in selected_labels]
+        augmented = self.aug_transform(image=img, masks=all_masks)
+        img, all_masks = augmented["image"], augmented["masks"]
+        original_size = img.shape[:2]
+
+        # Extract boxes and masks from ground-truths
+        masks_list = []
+        boxes_list = []
+        for mask in all_masks:
+            mask = torch.from_numpy(mask.copy()).type(torch.uint8)
+            mask = transform_gt(mask, self.image_encoder_input_size)
+            if mask.max() == 0:
+                H, W = mask.shape
+                x_min = random.randint(0, W - 1)
+                x_max = random.randint(0, W - 1)
+                y_min = random.randint(0, H - 1)
+                y_max = random.randint(0, H - 1)
+                if x_min > x_max:
+                    x_min, x_max = x_max, x_min
+                if y_min > y_max:
+                    y_min, y_max = y_max, y_min
+
+                bbox_shift = 1
+                x_min = max(0, x_min - bbox_shift)
+                x_max = min(W - 1, x_max + bbox_shift)
+                y_min = max(0, y_min - bbox_shift)
+                y_max = min(H - 1, y_max + bbox_shift)
+
+                box = np.array([x_min, y_min, x_max, y_max])
+            else:
+                if self.test:
+                    box = get_bbox(mask) # no random shift in bbox if testing
+                else:
+                    box = get_bbox(mask, random.randint(0, self.bbox_random_shift))
+            box = resize_box(box, mask.shape, self.prompt_encoder_input_size)
+            box = torch.tensor(box, dtype=torch.float32)
+            masks_list.append(mask)
+            boxes_list.append(box)
+
+        tsfm_img = torch.tensor(np.transpose(img, (2, 0, 1)), dtype=torch.uint8)
+        tsfm_img = self.transform_image(tsfm_img.unsqueeze(0)).squeeze(0)
+
         return {
             "image": tsfm_img,  # (3, H, W)
             "masks": torch.stack(masks_list).unsqueeze(1),  # (N, H, W)
@@ -304,7 +531,7 @@ class MedSAMDataProvider(DataProvider):
             image_encoder_input_size=self.image_size[0],
             bbox_random_shift=5,
             mask_num=self.num_masks,
-            limit_sample =limit_sample,
+            limit_sample = limit_sample,
             data_aug=True,
             aug_transform=train_transform,
             glob_pattern="**/*.npz",  # Or customize based on your dataset structure
