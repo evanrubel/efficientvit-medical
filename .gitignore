@@ -2,12 +2,13 @@
 .vscode
 
 __pycache__/
-
+.infer*
 .dev/
 .exp/
 .slurm/
 .demo/
 
+exp/
 wandb/
 tmp/
 

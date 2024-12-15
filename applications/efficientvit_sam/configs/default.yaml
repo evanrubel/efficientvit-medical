@@ -2,12 +2,12 @@ data_provider:
   dataset: sam
   root: /dataset/sam/
   sub_epochs_per_epoch: 40 # split one epoch into several sub epochs for validation and checkpointing convenience
-  num_masks: 64 # number of masks per image during training
-  train_batch_size: 4 # batch size per gpu device
-  base_batch_size: 4
-  test_batch_size: 4
+  num_masks: 5 # number of masks per image during training
+  train_batch_size: 32 # batch size per gpu device
+  base_batch_size: 32
+  test_batch_size: 32
   n_worker: 16 # 16
-  image_size: 1024
+  image_size: 512
   drop_last: true
 
 run_config:

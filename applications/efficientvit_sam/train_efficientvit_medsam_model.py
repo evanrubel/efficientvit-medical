@@ -12,6 +12,8 @@ from efficientvit.sam_model_zoo import create_efficientvit_sam_model
 from efficientvit.samcore.data_provider import MedSAMDataProvider
 from efficientvit.samcore.trainer import SAMRunConfig, MedSAMTrainer
 
+import pdb
+
 parser = argparse.ArgumentParser()
 parser.add_argument("config", metavar="FILE", help="config file")
 parser.add_argument("--path", type=str, metavar="DIR", help="run directory")
@@ -37,34 +39,37 @@ def main():
 
     setup.save_exp_config(config, args.path)
 
-    data_provider = setup.setup_data_provider(config, [MedSAMDataProvider], is_distributed=True)
+    # data_provider = setup.setup_data_provider(config, [MedSAMDataProvider], is_distributed=True)
 
-    run_config = setup.setup_run_config(config, SAMRunConfig)
+    # run_config = setup.setup_run_config(config, SAMRunConfig)
 
     model = create_efficientvit_sam_model(config["net_config"]["name"], False)
 
-    trainer = MedSAMTrainer(
-        path=args.path,
-        model=model,
-        data_provider=data_provider,
-    )
+    pdb.set_trace()
 
-    setup.init_model(
-        trainer.network,
-        init_from=config["net_config"]["ckpt"],
-        rand_init=args.rand_init,
-        last_gamma=args.last_gamma,
-    )
+    # trainer = MedSAMTrainer(
+    #     path=args.path,
+    #     model=model,
+    #     data_provider=data_provider,
+    # )
+    # pdb.set_trace()
 
-    trainer.prep_for_training(run_config, args.amp)
+    # setup.init_model(
+    #     trainer.network,
+    #     init_from=config["net_config"]["ckpt"],
+    #     rand_init=args.rand_init,
+    #     last_gamma=args.last_gamma,
+    # )
 
-    if args.resume:
-        trainer.load_model()
-        trainer.data_provider = setup.setup_data_provider(config, [MedSAMDataProvider], is_distributed=True)
-    else:
-        trainer.sync_model()
+    # trainer.prep_for_training(run_config, args.amp)
 
-    trainer.train()
+    # if args.resume:
+    #     trainer.load_model()
+    #     trainer.data_provider = setup.setup_data_provider(config, [MedSAMDataProvider], is_distributed=True)
+    # else:
+    #     trainer.sync_model()
+
+    # trainer.train()
 
 
 if __name__ == "__main__":

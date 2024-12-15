@@ -46,10 +46,6 @@ def point_sample(input, point_coords, **kwargs):
         add_dim = True
         point_coords = point_coords.unsqueeze(2)
 
-    print('Input Datatype')
-    print(input.dtype)
-    print('Point coords dtype')
-    print((2.0 * point_coords - 1.0).dtype)
     output = F.grid_sample(input, 2.0 * point_coords - 1.0, **kwargs)
     if add_dim:
         output = output.squeeze(3)
@@ -200,10 +196,8 @@ def loss_masks(src_masks, target_masks, num_masks, oversample_ratio=3.0, mode="m
             point_coords,
             align_corners=False,
         ).squeeze(1)
-    print('Src mask dtype')
-    print(src_masks.dtype)
     
-    src_masks = src_masks.to(torch.float32)
+  
 
     point_logits = point_sample(
         src_masks,
