@@ -247,7 +247,7 @@ def process_images(args, opt):
             raise NotImplementedError
 
 def main():
-    SPLEEN_DIR = "/data/rbg/users/erubel/efficient/efficientvit/data/Task09_Spleen"
+    SPLEEN_DIR = "Task09_Spleen"
 
     parser = argparse.ArgumentParser(description="EfficientViT SAM Medical Image Segmentation")
     parser.add_argument("--model", type=str, default="efficientvit-sam-xl1", help="SAM model variant")
